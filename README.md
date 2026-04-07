@@ -19,6 +19,30 @@ Please be attentive when interacting with the CLN. It is a good idea to occasion
 M3.14
 ```
 
+## Distributed Motion Control & Cascaded Dual-Loop Architecture
+
+This firmware has been modified to support a distributed motion control architecture. A central kinematic controller streams continuous absolute linear position targets over a CAN-FD bus to independent CLN boards.
+
+To achieve sub-micron, zero-backlash positioning, each CLN board implements a **Cascaded Dual-Loop Control** system combining two distinct sensors:
+
+### 1. The Inner Loop (Rotary Magnetic Sensor)
+The inner loop handles high-bandwidth tasks: electrical commutation (FOC) and velocity/torque control.
+- It uses the built-in `MagneticEncoderTLE5012B` on the CLN board.
+- Because the motor is configured for velocity control (`MotionControlType::velocity`), the SimpleFOC library uses this inner rotary sensor for two things:
+  1. **Commutation:** It precisely measures the rotor angle to determine exactly which coils to energize.
+  2. **Velocity Control:** It constantly measures how fast the motor is spinning and uses its internal velocity PID loop to maintain the demanded target speed.
+
+### 2. The Outer Loop (Linear Encoder)
+The outer loop is entirely responsible for tracking the exact physical output position and eliminating backlash.
+- It uses an external **MT6835 Linear Magnetic Encoder**, read via SPI directly by the CLN board.
+- The control loop constantly reads the absolute position from this linear encoder and compares it to the target position received over the CAN bus.
+- An independent PID controller (`PID_outer_position`) takes this position error and calculates a **target velocity** to command the inner loop.
+
+### How they work together
+If the outer loop detects a 2mm error, it might command a target velocity of 5 rad/s. The inner loop takes this command, and uses its high-bandwidth internal rotary sensor to track its own speed and execute precise FOC commutation to maintain 5 rad/s smoothly. As the linear axis approaches the target, the outer loop continuously shrinks the target velocity down to 0, at which point the inner loop gracefully holds the motor still.
+
+This cascaded approach ensures that the system can completely ignore backlash and mechanical slop in the transmission, as the outer loop relies entirely on the direct linear position of the final output.
+
 ## Additional useful information
 
 1. Attach the magnet to the motor shaft so that it is as close to the PCB as possible. You may need to use a spacer.
