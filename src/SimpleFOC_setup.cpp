@@ -11,6 +11,10 @@
 #include "bsp/cln17_v2.h"
 #include "motor_calibration.h"
 
+#include "MT6835_encoder.h"
+#include <SimpleCANio.h>
+#include <SPI.h>
+
 MagneticEncoderTLE5012B encoder = MagneticEncoderTLE5012B(
     // PINOUT::ENC_MOSI, 
     // PINOUT::ENC_MISO, 
@@ -47,14 +51,23 @@ float supply_voltage = POWER_SUPPLY_VOLTAGE;
 
 void onMotor(char* cmd){ commander.motor(&motor,cmd); }
 
+SPIClass SPI_MT6835(PINOUT::MT6835_MOSI, PINOUT::MT6835_MISO, PINOUT::MT6835_SCK);
+MT6835Encoder linear_encoder(SPI_MT6835, PINOUT::MT6835_CS);
+
+PIDController PID_outer_position{10.0, 0.0, 0.1, 0, 50.0};
+
+CANio can(PINOUT::CAN_RX, PINOUT::CAN_TX);
+float target_linear_pos = 0.0f;
+uint32_t MY_NODE_ID = 0x101;
+
 void initMotorParameters()
 {
     // Torque control type ("foc_current" is the most advanced one, so it's better not to change it)
     motor.torque_controller = TorqueControlType::foc_current;
 
     // Control mode (uncomment the one you need)
-    motor.controller = MotionControlType::angle;
-    // motor.controller = MotionControlType::velocity;
+    // motor.controller = MotionControlType::angle;
+    motor.controller = MotionControlType::velocity;
     // motor.controller = MotionControlType::torque;
 
     // Current control: PID, LPF, limits
@@ -96,6 +109,12 @@ void initSimpleFOC()
     }
 
     SimpleFOC_CORDIC_Config();
+
+    SPI_MT6835.begin();
+    linear_encoder.init();
+
+    can.begin(1000000);
+
     initMotorParameters();
     motor.voltage_limit = supply_voltage;
     motor.PID_current_q.limit = supply_voltage;
@@ -175,10 +194,22 @@ void loopFOC()
     motor.voltage_limit = supply_voltage;
 
     motor.loopFOC();
-    motor.move();
+
+    // Outer loop: Calculate target velocity based on linear position error
+    float current_linear_pos = linear_encoder.read_abs_angle(); // In radians, usually converted to mm if linear, but leaving as is for now
+    float target_velocity = PID_outer_position(target_linear_pos - current_linear_pos);
+
+    motor.move(target_velocity);
 }
 
 void runCommander()
 {
     commander.run();
+
+    if (can.available()) {
+        CanMsg msg = can.read();
+        if (msg.id == MY_NODE_ID && msg.data_length == 4) {
+            memcpy(&target_linear_pos, msg.data, 4);
+        }
+    }
 }

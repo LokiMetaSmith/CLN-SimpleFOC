@@ -38,20 +38,19 @@ namespace PINOUT {
     // constexpr PinName SYS_VREF = PADC_VREF;  // Core VREF voltage ADC
     // constexpr PinName SYS_TEMP = PADC_TEMP;  // Core VTEMP temperature ADC
 
-    // // CTRL connector
-    // constexpr PinName CTRL_ENB = PA_8;   // ENB / 5V / SCL / CS   / 5V
-    // constexpr PinName CTRL_STP = PB_5;   // DIR / CK / SDA / MOSI / A
-    // constexpr PinName CTRL_DIR = PB_4;   // STP / RX / RX  / MISO / B
-    // constexpr PinName CTRL_ERR = PB_3;   // ERR / TX / TX  / SCK  / Z
-    // constexpr PinName CTRL_5VO = PB_12;  // 5V output on ENB, OPEN-DRAIN Logic
+    // // CTRL connector (Re-used for MT6835 SPI)
+    constexpr int MT6835_CS   = PA8;   // CTRL_ENB
+    constexpr int MT6835_MOSI = PB5;   // CTRL_STP
+    constexpr int MT6835_MISO = PB4;   // CTRL_DIR
+    constexpr int MT6835_SCK  = PB3;   // CTRL_ERR
 
     // // Expansion connector
     // constexpr PinName EXP_TX = PC_10;  // UART3 RX
     // constexpr PinName EXP_RX = PC_11;  // UART3 TX
 
     // // CAN-Bus interface
-    // constexpr PinName CAN_RX = PB_8;   // Recieve line
-    // constexpr PinName CAN_TX = PB_9;   // Trancieve line
+    constexpr int CAN_RX = PB8;   // Recieve line
+    constexpr int CAN_TX = PB9;   // Trancieve line
     // constexpr PinName CAN_SD = PA_9;   // Shutdown pin (ACTIVE LOW)
     // constexpr PinName CAN_IO = PA_10;  // HIGH for (VIO or EN) or HIGH-Z for (VREF)
 
